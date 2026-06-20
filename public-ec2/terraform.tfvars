@@ -1,0 +1,5 @@
+ami_id            = "ami-0e38835daf6b8a2b9"
+public_subnet_id  = "subnet-0fb84ab279d8fc804"
+private_subnet_id = "subnet-0be35662b785b231d"
+instance_type     = "t3.micro"
+aws_region        = "ap-south-1"

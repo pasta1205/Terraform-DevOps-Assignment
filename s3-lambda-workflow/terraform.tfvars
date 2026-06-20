@@ -1,0 +1,1 @@
+bucket_name = "partha-s3-sqs-lambda-tf-bucket"
