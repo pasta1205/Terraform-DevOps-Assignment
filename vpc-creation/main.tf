@@ -181,17 +181,6 @@ resource "aws_security_group" "backend_sg" {
     ]
   }
 
-  ingress {
-
-    from_port = 22
-    to_port   = 22
-    protocol  = "tcp"
-
-    security_groups = [
-      aws_security_group.frontend_sg.id
-    ]
-  }
-
   egress {
 
     from_port = 0
@@ -206,11 +195,12 @@ resource "aws_security_group" "backend_sg" {
 #FrontendEC2:
 
 resource "aws_instance" "frontend" {
-
   ami           = var.ami_id
   instance_type = var.instance_type
 
   subnet_id = aws_subnet.public_subnet.id
+
+  iam_instance_profile = aws_iam_instance_profile.ssm_profile.name
 
   vpc_security_group_ids = [
     aws_security_group.frontend_sg.id
@@ -220,8 +210,9 @@ resource "aws_instance" "frontend" {
 
   user_data = <<-EOF
 #!/bin/bash
-yum update -y
-yum install httpd -y
+dnf update -y
+dnf install -y httpd
+
 systemctl enable httpd
 systemctl start httpd
 
@@ -233,7 +224,6 @@ EOF
   }
 }
 
-
 #BackendEC2:
 
 resource "aws_instance" "backend" {
@@ -242,6 +232,8 @@ resource "aws_instance" "backend" {
   instance_type = var.instance_type
 
   subnet_id = aws_subnet.private_subnet.id
+
+  iam_instance_profile = aws_iam_instance_profile.ssm_profile.name
 
   vpc_security_group_ids = [
     aws_security_group.backend_sg.id
@@ -252,16 +244,18 @@ resource "aws_instance" "backend" {
   user_data = <<-EOF
 #!/bin/bash
 
-cat <<MONGO > /etc/yum.repos.d/mongodb-org-7.repo
+cat <<REPO > /etc/yum.repos.d/mongodb-org-7.repo
 [mongodb-org-7.0]
 name=MongoDB Repository
 baseurl=https://repo.mongodb.org/yum/amazon/2023/mongodb-org/7.0/x86_64/
 gpgcheck=1
 enabled=1
 gpgkey=https://pgp.mongodb.com/server-7.0.asc
-MONGO
+REPO
 
-yum install -y mongodb-org
+dnf install -y mongodb-org
+
+sed -i 's/127.0.0.1/0.0.0.0/' /etc/mongod.conf
 
 systemctl enable mongod
 systemctl start mongod
@@ -271,3 +265,32 @@ EOF
     Name = "Backend"
   }
 }
+
+
+#SSM-IAM-Role:
+
+resource "aws_iam_role" "ssm_role" {
+  name = "SSMRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_policy" {
+  role       = aws_iam_role.ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ssm_profile" {
+  name = "SSMProfile"
+  role = aws_iam_role.ssm_role.name
+}
+

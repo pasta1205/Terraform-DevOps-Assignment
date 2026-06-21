@@ -10,6 +10,10 @@ output "backend_private_ip" {
   value = aws_instance.backend.private_ip
 }
 
-output "vpc_id" {
-  value = aws_vpc.custom_vpc.id
+output "frontend_instance_id" {
+  value = aws_instance.frontend.id
+}
+
+output "backend_instance_id" {
+  value = aws_instance.backend.id
 }
